@@ -18,13 +18,18 @@ jobs:
       with:
         node-version: '24'
     
-    - name: Remove problematic packages
+    - name: Install system dependencies
       run: |
-        npm pkg delete optionalDependencies.kerberos
-        sed -i '/kerberos/d' package-lock.json || true
+        sudo apt-get update
+        sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev pkg-config build-essential python3
+    
+    - name: Remove kerberos
+      run: |
+        npm pkg delete optionalDependencies.kerberos 2>/dev/null || true
+        sed -i '/kerberos/d' package-lock.json 2>/dev/null || true
     
     - name: Install dependencies
-      run: npm install --no-optional --ignore-scripts --no-audit --no-fund
+      run: npm install --no-optional --no-audit --no-fund
     
     - name: Build web version
       run: npx gulp vscode-reh-web-linux-x64-min
