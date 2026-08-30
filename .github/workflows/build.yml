@@ -20,6 +20,11 @@ jobs:
     
     - name: Install dependencies (skip native modules)
       run: npm install --omit=optional --no-audit --no-fund
+
+    - name: Skip native modules during build
+      run: |
+        npm rebuild --ignore-scripts
+        npx gulp vscode-reh-web-linux-x64-min
     
     - name: Build web version
       run: npx gulp vscode-reh-web-linux-x64-min
@@ -29,3 +34,4 @@ jobs:
       with:
         name: rift-web-build
         path: vscode-reh-web-linux-x64/
+        
