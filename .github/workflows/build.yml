@@ -28,6 +28,9 @@ jobs:
         npm pkg delete optionalDependencies.kerberos 2>/dev/null || true
         sed -i '/kerberos/d' package-lock.json 2>/dev/null || true
     
+    - name: Ensure remote/.npmrc exists
+      run: mkdir -p remote && touch remote/.npmrc
+    
     - name: Install dependencies
       run: npm install --no-optional --no-audit --no-fund
     
