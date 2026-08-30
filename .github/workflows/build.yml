@@ -18,8 +18,13 @@ jobs:
       with:
         node-version: '24'
     
-    - name: Install dependencies (no optional)
-      run: npm install --no-optional --no-audit --no-fund
+    - name: Remove problematic packages
+      run: |
+        npm pkg delete optionalDependencies.kerberos
+        sed -i '/kerberos/d' package-lock.json || true
+    
+    - name: Install dependencies
+      run: npm install --no-optional --ignore-scripts --no-audit --no-fund
     
     - name: Build web version
       run: npx gulp vscode-reh-web-linux-x64-min
