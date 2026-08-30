@@ -19,7 +19,7 @@ jobs:
         node-version: '24'
     
     - name: Install dependencies (skip native modules)
-      run: npm install --omit=optional --ignore-scripts --no-audit --no-fund
+      run: npm install --omit=optional --no-audit --no-fund
     
     - name: Build web version
       run: npx gulp vscode-reh-web-linux-x64-min
