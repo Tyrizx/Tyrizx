@@ -1,4 +1,4 @@
-package net.rift
+package io.tyrizx
 
 import android.os.Bundle
 import android.webkit.WebView
