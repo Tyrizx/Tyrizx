@@ -1,0 +1,48 @@
+name: Rift APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Download and prepare OpenVSCode Server
+      run: |
+        mkdir -p app/src/main/assets
+        cd app/src/main/assets
+        wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
+        tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
+        mv openvscode-server-v1.109.5-linux-arm64 openvscode
+        wget -q https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.xz
+        tar -xf node-v24.18.0-linux-arm64.tar.xz
+        cp node-v24.18.0-linux-arm64/bin/node openvscode/node
+        chmod +x openvscode/node openvscode/bin/openvscode-server
+        rm -f openvscode-server-v1.109.5-linux-arm64.tar.gz node-v24.18.0-linux-arm64.tar.xz
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build APK
+      run: ./gradlew assembleRelease
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: rift-apk
+        path: app/build/outputs/apk/release/*.apk

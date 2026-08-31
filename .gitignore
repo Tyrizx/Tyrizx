@@ -54,3 +54,6 @@ dist
 .v[0-9]*/
 # Local agent validation evidence
 .agent-validation/
+app/src/main/assets/
+*.tar.gz
+*.tar.xz

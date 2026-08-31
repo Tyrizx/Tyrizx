@@ -16,7 +16,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Create WebView programmatically
         webView = WebView(this).apply {
             settings.apply {
                 javaScriptEnabled = true
@@ -31,10 +30,7 @@ class MainActivity : AppCompatActivity() {
             webViewClient = WebViewClient()
         }
 
-        // Set the WebView as the content view
         setContentView(webView)
-
-        // Start the server and load the WebView
         startServerAndLoad()
     }
 
