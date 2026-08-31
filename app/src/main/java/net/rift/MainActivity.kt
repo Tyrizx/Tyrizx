@@ -15,21 +15,26 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
-        webView = findViewById(R.id.webView)
-        webView.webViewClient = WebViewClient()
-        webView.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            allowFileAccess = true
-            setSupportZoom(true)
-            builtInZoomControls = true
-            displayZoomControls = false
-            loadWithOverviewMode = true
-            useWideViewPort = true
+        // Create WebView programmatically
+        webView = WebView(this).apply {
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                allowFileAccess = true
+                setSupportZoom(true)
+                builtInZoomControls = true
+                displayZoomControls = false
+                loadWithOverviewMode = true
+                useWideViewPort = true
+            }
+            webViewClient = WebViewClient()
         }
 
+        // Set the WebView as the content view
+        setContentView(webView)
+
+        // Start the server and load the WebView
         startServerAndLoad()
     }
 
