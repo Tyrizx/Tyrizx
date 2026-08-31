@@ -1,4 +1,4 @@
-name: Build Rift Web Version
+name: Rift APK
 
 on:
   push:
@@ -8,37 +8,28 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/checkout@v6
+
+    - name: Setup Java
+      uses: actions/setup-java@v7
       with:
-        node-version: '24'
-    
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libkrb5-dev libx11-dev libxkbfile-dev pkg-config build-essential python3
-    
-    - name: Remove kerberos
-      run: |
-        npm pkg delete optionalDependencies.kerberos 2>/dev/null || true
-        sed -i '/kerberos/d' package-lock.json 2>/dev/null || true
-    
-    - name: Ensure remote/.npmrc exists
-      run: mkdir -p remote && touch remote/.npmrc
-    
-    - name: Install dependencies
-      run: npm install --no-optional --no-audit --no-fund
-    
-    - name: Build web version
-      run: npx gulp vscode-reh-web-linux-x64-min
-    
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build APK
+      run: ./gradlew assembleRelease
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v7
       with:
-        name: rift-web-build
-        path: vscode-reh-web-linux-x64/
+        name: rift-apk
+        path: app/build/outputs/apk/release/*.apk
