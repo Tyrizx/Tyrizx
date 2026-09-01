@@ -10,6 +10,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,35 +40,68 @@ class MainActivity : AppCompatActivity() {
 
     private fun startServerAndLoad() {
         val serverDir = File(filesDir, "code-server")
+        Log.d("Tyrizx", "Server dir: ${serverDir.absolutePath}")
+
         if (!serverDir.exists()) {
+            Log.d("Tyrizx", "Extracting assets...")
             try {
                 copyAssets("code-server", serverDir)
+                Log.d("Tyrizx", "Extraction complete.")
             } catch (e: IOException) {
+                Log.e("Tyrizx", "Extraction failed: ${e.message}")
                 e.printStackTrace()
                 return
             }
         }
 
-        val serverBinary = File(serverDir, "code-server")
+        // Check if code-server binary exists
+        val serverBinary = File(serverDir, "bin/code-server")
+        if (!serverBinary.exists()) {
+            Log.e("Tyrizx", "code-server binary not found at ${serverBinary.absolutePath}")
+            return
+        }
+
+        Log.d("Tyrizx", "Binary exists, setting executable...")
         serverBinary.setExecutable(true)
 
+        // Create user data dir
+        val userDataDir = File(filesDir, ".tyrizx-userdata")
+        userDataDir.mkdirs()
+
+        Log.d("Tyrizx", "Starting server...")
         val processBuilder = ProcessBuilder(
             serverBinary.absolutePath,
             "--port", "8080",
-            "--host", "0.0.0.0",
+            "--host", "127.0.0.1",  // Bind to loopback only
             "--auth", "none",
-            "--user-data-dir", "${filesDir.absolutePath}/.tyrizx-userdata"
+            "--user-data-dir", userDataDir.absolutePath
         )
         processBuilder.directory(serverDir)
         processBuilder.environment()["LD_LIBRARY_PATH"] = "/system/lib64:${serverDir.absolutePath}"
-        serverProcess = processBuilder.start()
+        processBuilder.redirectErrorStream(true)
 
-        val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream))
-        val output = reader.readText()
-        Log.d("Tyrizx", "Server output: $output")
+        try {
+            serverProcess = processBuilder.start()
 
+            // Read stdout/stderr in a separate thread to avoid blocking
+            Thread {
+                val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream ?: InputStream.nullInputStream()))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    Log.d("Tyrizx", "Server: $line")
+                }
+            }.start()
+
+        } catch (e: Exception) {
+            Log.e("Tyrizx", "Failed to start server: ${e.message}")
+            e.printStackTrace()
+            return
+        }
+
+        // Wait for server to start, then load WebView
         webView.postDelayed({
-            webView.loadUrl("http://0.0.0.0:8080")
+            Log.d("Tyrizx", "Loading WebView at http://127.0.0.1:8080")
+            webView.loadUrl("http://127.0.0.1:8080")
         }, 8000)
     }
 
