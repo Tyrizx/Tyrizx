@@ -38,20 +38,30 @@ jobs:
         mv openvscode-server-v1.109.5-linux-arm64/* .
         rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
 
-        # 3. Download and extract Termux Node binary using dpkg-deb
-        wget -q https://packages.termux.dev/apt/termux-main/pool/main/nodejs/nodejs-lts_24.18.0_aarch64.deb
+        # Fetch the latest Termux package index to extract real-time URLs dynamically
+        BASE_URL="https://packages-cf.termux.dev/apt/termux-main"
+        wget -q "$BASE_URL/dists/stable/main/binary-aarch64/Packages" -O TermuxPackages
+
+        # 3. Dynamically download and extract Termux Node binary
+        NODE_PATH=$(grep -E '^Filename: pool/main/n/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
+        NODE_DEB=$(basename "$NODE_PATH")
+        wget -q "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
+        
         mkdir -p node-extract
-        dpkg-deb -x nodejs-lts_24.18.0_aarch64.deb node-extract/
+        dpkg-deb -x "$NODE_DEB" node-extract/
         cp node-extract/data/data/com.termux/files/usr/bin/node .
         chmod +x node
-        rm -rf node-extract nodejs-lts_24.18.0_aarch64.deb
+        rm -rf node-extract "$NODE_DEB"
 
-        # 4. Download and extract libc++_shared.so using dpkg-deb
-        wget -q https://packages.termux.dev/apt/termux-main/pool/main/libc%2b%2b/libc%2b%2b_29.0_aarch64.deb
+        # 4. Dynamically download and extract libc++_shared.so
+        LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
+        LIBC_DEB=$(basename "$LIBC_PATH")
+        wget -q "$BASE_URL/$LIBC_PATH" -O "$LIBC_DEB"
+        
         mkdir -p lib-extract
-        dpkg-deb -x libc%2b%2b_29.0_aarch64.deb lib-extract/
+        dpkg-deb -x "$LIBC_DEB" lib-extract/
         cp lib-extract/data/data/com.termux/files/usr/lib/libc++_shared.so .
-        rm -rf lib-extract libc%2b%2b_29.0_aarch64.deb
+        rm -rf lib-extract "$LIBC_DEB" TermuxPackages
 
         # 5. Create symlink so Node finds libstdc++.so.6
         ln -sf libc++_shared.so libstdc++.so.6
