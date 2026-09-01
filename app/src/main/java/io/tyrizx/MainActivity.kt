@@ -49,7 +49,6 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("Tyrizx", "Extracting assets...")
         try {
-            // Correct asset copying entry point
             copyAssetsToDir("openvscode", serverDir)
             Log.d("Tyrizx", "Extraction complete.")
         } catch (e: IOException) {
@@ -58,22 +57,28 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Node binary at the root of target folder
-        val nodeBinary = File(serverDir, "node")
+        // Node binary is extracted to nativeLibraryDir (libnode.so)
+        val nativeLibDir = applicationInfo.nativeLibraryDir
+        val nodeBinary = File(nativeLibDir, "libnode.so")
+
         if (!nodeBinary.exists()) {
-            Log.e("Tyrizx", "Node binary not found at ${nodeBinary.absolutePath}")
+            Log.e("Tyrizx", "libnode.so not found at ${nodeBinary.absolutePath}")
             return
         }
-        nodeBinary.setExecutable(true)
 
-        // Server entry point
+        // Ensure execute permission (SELinux allows this in nativeLibraryDir)
+        nodeBinary.setExecutable(true)
+        nodeBinary.setWritable(false)
+        nodeBinary.setReadable(true)
+
+        // Server entry point is in assets (copied to serverDir)
         val serverMain = File(serverDir, "out/server-main.js")
         if (!serverMain.exists()) {
             Log.e("Tyrizx", "server-main.js not found at ${serverMain.absolutePath}")
             return
         }
 
-        Log.d("Tyrizx", "Starting server with Node...")
+        Log.d("Tyrizx", "Starting server with Node from nativeLibraryDir...")
 
         val processBuilder = ProcessBuilder(
             nodeBinary.absolutePath,
@@ -84,32 +89,24 @@ class MainActivity : AppCompatActivity() {
         )
         processBuilder.directory(serverDir)
 
-        // Force Node to discover local runtime libraries/modules
-        processBuilder.environment()["NODE_PATH"] = File(serverDir, "node_modules").absolutePath
-        processBuilder.environment()["LD_LIBRARY_PATH"] = serverDir.absolutePath
-        
-        // This multiplexes standard error directly into standard output stream
+        // Set environment variables
+        val nodeModulesPath = File(serverDir, "node_modules").absolutePath
+        processBuilder.environment()["NODE_PATH"] = nodeModulesPath
+
+        // Also add nativeLibraryDir to LD_LIBRARY_PATH for libc++_shared.so
+        val libPath = "$nativeLibDir:${serverDir.absolutePath}"
+        processBuilder.environment()["LD_LIBRARY_PATH"] = libPath
         processBuilder.redirectErrorStream(true)
 
         try {
             serverProcess = processBuilder.start()
-
-            // Handle combined stdout and stderr streams cleanly inside a background thread
             Thread {
-                val inputStream = serverProcess?.inputStream
-                if (inputStream != null) {
-                    val reader = BufferedReader(InputStreamReader(inputStream))
-                    var line: String?
-                    try {
-                        while (reader.readLine().also { line = it } != null) {
-                            Log.d("Tyrizx", "Server: $line")
-                        }
-                    } catch (e: IOException) {
-                        Log.e("Tyrizx", "Stream closed: ${e.message}")
-                    }
+                val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream ?: InputStream.nullInputStream()))
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    Log.d("Tyrizx", "Server: $line")
                 }
             }.start()
-
         } catch (e: Exception) {
             Log.e("Tyrizx", "Failed to start server: ${e.message}")
             e.printStackTrace()
@@ -124,9 +121,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun copyAssetsToDir(assetPath: String, targetDir: File) {
         val assetList = assets.list(assetPath)
-        
         if (assetList.isNullOrEmpty()) {
-            // It is an asset file, copy it directly
             targetDir.parentFile?.mkdirs()
             assets.open(assetPath).use { input ->
                 FileOutputStream(targetDir).use { output ->
@@ -134,7 +129,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else {
-            // It is an asset directory, build the matching folder structure
             if (!targetDir.exists()) {
                 targetDir.mkdirs()
             }
