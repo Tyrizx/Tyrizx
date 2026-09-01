@@ -25,10 +25,50 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Download and prepare OpenVSCode Server
+      run: |
+        # Create assets folder
+        mkdir -p app/src/main/assets/openvscode
+        cd app/src/main/assets/openvscode
+        
+        # Download OpenVSCode Server ARM64
+        wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
+        tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
+        mv openvscode-server-v1.109.5-linux-arm64/* .
+        rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
+
+        # Download Node.js ARM64 binary
+        wget -q https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.xz
+        tar -xf node-v24.18.0-linux-arm64.tar.xz
+        cp node-v24.18.0-linux-arm64/bin/node ./node
+        chmod +x node
+        rm -rf node-v24.18.0-linux-arm64*
+
+    - name: Apply Tyrizx branding to product.json
+      run: |
+        cat > app/src/main/assets/openvscode/product.json << 'EOF'
+        {
+          "nameShort": "Tyrizx",
+          "nameLong": "Tyrizx",
+          "applicationName": "tyrizx",
+          "dataFolderName": ".tyrizx",
+          "win32AppUserModelId": "io.tyrizx",
+          "darwinBundleIdentifier": "io.tyrizx",
+          "linuxIconName": "tyrizx",
+          "extensionsGallery": {
+            "serviceUrl": "https://open-vsx.org/vscode/gallery",
+            "itemUrl": "https://open-vsx.org/vscode/item",
+            "resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}",
+            "extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest"
+          },
+          "enableTelemetry": false
+        }
+        EOF
+
     - name: Build Debug APK
       run: ./gradlew assembleDebug
 
-    - name: Upload Debug APK
+    - name: Upload APK
       uses: actions/upload-artifact@v7
       with:
         name: tyrizx-debug
