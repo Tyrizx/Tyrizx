@@ -1,7 +1,6 @@
 package io.tyrizx
 
 import android.os.Bundle
-import android.os.Environment
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.util.Log
@@ -43,61 +42,49 @@ class MainActivity : AppCompatActivity() {
         val serverDir = File(filesDir, "code-server")
         Log.d("Tyrizx", "Server dir: ${serverDir.absolutePath}")
 
-        if (!serverDir.exists()) {
-            Log.d("Tyrizx", "Extracting assets...")
-            try {
-                copyAssets("code-server", serverDir)
-                Log.d("Tyrizx", "Extraction complete.")
-            } catch (e: IOException) {
-                Log.e("Tyrizx", "Extraction failed: ${e.message}")
-                e.printStackTrace()
-                return
-            }
+        // Delete old folder to force a clean copy
+        if (serverDir.exists()) {
+            Log.d("Tyrizx", "Deleting existing folder...")
+            serverDir.deleteRecursively()
         }
 
-        // === DEBUG: write directory tree to Downloads ===
+        Log.d("Tyrizx", "Extracting assets...")
         try {
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val debugFile = File(downloadsDir, "tyrizx_debug.txt")
-            writeDirectoryTree(serverDir, debugFile)
-            Log.d("Tyrizx", "Debug tree written to ${debugFile.absolutePath}")
-        } catch (e: Exception) {
-            Log.e("Tyrizx", "Failed to write debug file: ${e.message}")
-        }
-
-        // Try to find the binary
-        val possiblePaths = listOf(
-            File(serverDir, "bin/code-server"),
-            File(serverDir, "code-server"),
-            File(serverDir, "lib/node_modules/.bin/code-server")
-        )
-
-        val serverBinary = possiblePaths.firstOrNull { it.exists() }
-
-        if (serverBinary == null) {
-            Log.e("Tyrizx", "code-server binary not found in any expected location.")
+            copyAssetsToDir("code-server", serverDir)
+            Log.d("Tyrizx", "Extraction complete.")
+        } catch (e: IOException) {
+            Log.e("Tyrizx", "Extraction failed: ${e.message}")
+            e.printStackTrace()
             return
         }
 
-        Log.d("Tyrizx", "Binary found at: ${serverBinary.absolutePath}, setting executable...")
+        // Locate the binary (try multiple possible paths)
+        val binaryCandidates = listOf(
+            File(serverDir, "bin/code-server"),
+            File(serverDir, "bin/code-server/code-server"),
+            File(serverDir, "code-server")
+        )
+
+        val serverBinary = binaryCandidates.firstOrNull { it.exists() }
+
+        if (serverBinary == null) {
+            Log.e("Tyrizx", "code-server binary not found.")
+            return
+        }
+
+        Log.d("Tyrizx", "Binary found at: ${serverBinary.absolutePath}")
         serverBinary.setExecutable(true)
 
         val nodeBinary = File(serverDir, "lib/node")
         if (nodeBinary.exists()) {
-            Log.d("Tyrizx", "Setting executable on node binary")
             nodeBinary.setExecutable(true)
         }
 
-        // Force chmod 755 on both binaries
+        // chmod 755 on the binary
         try {
-            val chmod1 = Runtime.getRuntime().exec(arrayOf("chmod", "755", serverBinary.absolutePath))
-            chmod1.waitFor()
-            Log.d("Tyrizx", "chmod code-server exit: ${chmod1.exitValue()}")
-            if (nodeBinary.exists()) {
-                val chmod2 = Runtime.getRuntime().exec(arrayOf("chmod", "755", nodeBinary.absolutePath))
-                chmod2.waitFor()
-                Log.d("Tyrizx", "chmod node exit: ${chmod2.exitValue()}")
-            }
+            val chmod = Runtime.getRuntime().exec(arrayOf("chmod", "755", serverBinary.absolutePath))
+            chmod.waitFor()
+            Log.d("Tyrizx", "chmod code-server exit: ${chmod.exitValue()}")
         } catch (e: Exception) {
             Log.e("Tyrizx", "chmod failed: ${e.message}")
         }
@@ -138,21 +125,14 @@ class MainActivity : AppCompatActivity() {
         }, 15000)
     }
 
-    private fun writeDirectoryTree(dir: File, outputFile: File) {
-        val basePath = dir.absolutePath
-        outputFile.printWriter().use { writer ->
-            dir.walkTopDown().forEach {
-                val relativePath = it.absolutePath.removePrefix(basePath)
-                val depth = relativePath.count { it == '/' } // count directory separators
-                val indent = "  ".repeat(depth)
-                writer.println("$indent${it.name}${if (it.isDirectory) "/" else ""}")
-            }
-        }
-    }
-
-    private fun copyAssets(assetPath: String, targetDir: File) {
+    /**
+     * Recursively copy assets from the APK to the internal storage.
+     * Handles files and directories correctly.
+     */
+    private fun copyAssetsToDir(assetPath: String, targetDir: File) {
         val assetList = assets.list(assetPath)
         if (assetList.isNullOrEmpty()) {
+            // It's a file – copy it
             val outFile = File(targetDir, assetPath.substringAfterLast('/'))
             outFile.parentFile?.mkdirs()
             assets.open(assetPath).use { input ->
@@ -161,10 +141,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else {
+            // It's a directory – create it and recurse
             targetDir.mkdirs()
             for (file in assetList) {
                 val subPath = if (assetPath.isEmpty()) file else "$assetPath/$file"
-                copyAssets(subPath, File(targetDir, file))
+                copyAssetsToDir(subPath, File(targetDir, file))
             }
         }
     }
