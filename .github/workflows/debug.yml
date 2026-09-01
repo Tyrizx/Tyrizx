@@ -11,10 +11,10 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
 
     - name: Setup Java
-      uses: actions/setup-java@v6
+      uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
@@ -25,28 +25,18 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Download and prepare OpenVSCode Server
+    - name: Download and prepare code-server
       run: |
-        # Create assets folder
-        mkdir -p app/src/main/assets/openvscode
-        cd app/src/main/assets/openvscode
-        
-        # Download OpenVSCode Server ARM64
-        wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
-        tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
-        mv openvscode-server-v1.109.5-linux-arm64/* .
-        rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
+        mkdir -p app/src/main/assets/code-server
+        cd app/src/main/assets/code-server
+        wget -q https://github.com/coder/code-server/releases/download/v4.135.0/code-server-4.135.0-linux-arm64.tar.gz
+        tar -xzf code-server-4.135.0-linux-arm64.tar.gz
+        mv code-server-4.135.0-linux-arm64/* .
+        rm -rf code-server-4.135.0-linux-arm64 code-server-4.135.0-linux-arm64.tar.gz
 
-        # Download Node.js ARM64 binary
-        wget -q https://nodejs.org/dist/v24.18.0/node-v24.18.0-linux-arm64.tar.xz
-        tar -xf node-v24.18.0-linux-arm64.tar.xz
-        cp node-v24.18.0-linux-arm64/bin/node ./node
-        chmod +x node
-        rm -rf node-v24.18.0-linux-arm64*
-
-    - name: Apply Tyrizx branding to product.json
+    - name: Apply Tyrizx branding
       run: |
-        cat > app/src/main/assets/openvscode/product.json << 'EOF'
+        cat > app/src/main/assets/code-server/product.json << 'EOF'
         {
           "nameShort": "Tyrizx",
           "nameLong": "Tyrizx",
@@ -69,7 +59,7 @@ jobs:
       run: ./gradlew assembleDebug
 
     - name: Upload APK
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@v4
       with:
         name: tyrizx-debug
         path: app/build/outputs/apk/debug/*.apk
