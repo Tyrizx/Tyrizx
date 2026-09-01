@@ -38,26 +38,20 @@ jobs:
         mv openvscode-server-v1.109.5-linux-arm64/* .
         rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
 
-        # 3. Download and extract Termux Node binary (Android Bionic)
+        # 3. Download and extract Termux Node binary using dpkg-deb
         wget -q https://packages.termux.dev/apt/termux-main/pool/main/nodejs/nodejs-lts_24.18.0_aarch64.deb
-        mkdir -p node-tmp
-        ar x nodejs-lts_24.18.0_aarch64.deb --output node-tmp/
-        cd node-tmp
-        tar -xf data.tar.xz
-        cp ./data/data/com.termux/files/usr/bin/node ../node
-        cd ..
+        mkdir -p node-extract
+        dpkg-deb -x nodejs-lts_24.18.0_aarch64.deb node-extract/
+        cp node-extract/data/data/com.termux/files/usr/bin/node .
         chmod +x node
-        rm -rf node-tmp nodejs-lts_24.18.0_aarch64.deb
+        rm -rf node-extract nodejs-lts_24.18.0_aarch64.deb
 
-        # 4. Download and extract libc++_shared.so
+        # 4. Download and extract libc++_shared.so using dpkg-deb
         wget -q https://packages.termux.dev/apt/termux-main/pool/main/libc%2b%2b/libc%2b%2b_29.0_aarch64.deb
-        mkdir -p lib-tmp
-        ar x libc%2b%2b_29.0_aarch64.deb --output lib-tmp/
-        cd lib-tmp
-        tar -xf data.tar.xz
-        cp ./data/data/com.termux/files/usr/lib/libc++_shared.so ../
-        cd ..
-        rm -rf lib-tmp libc%2b%2b_29.0_aarch64.deb
+        mkdir -p lib-extract
+        dpkg-deb -x libc%2b%2b_29.0_aarch64.deb lib-extract/
+        cp lib-extract/data/data/com.termux/files/usr/lib/libc++_shared.so .
+        rm -rf lib-extract libc%2b%2b_29.0_aarch64.deb
 
         # 5. Create symlink so Node finds libstdc++.so.6
         ln -sf libc++_shared.so libstdc++.so.6
