@@ -59,7 +59,6 @@ class MainActivity : AppCompatActivity() {
         // Locate files extracted to internal data storage
         val nodeBinary = File(serverDir, "libnode.so")
         val serverMain = File(serverDir, "out/server-main.js")
-        val libcShared = File(serverDir, "libc++_shared.so")
 
         if (!nodeBinary.exists()) {
             Log.e("Tyrizx", "libnode.so not found at ${nodeBinary.absolutePath}")
@@ -70,13 +69,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Fix file permissions explicitly so the system linker is authorized to parse them
-        nodeBinary.setReadable(true, false)
-        nodeBinary.setExecutable(true, false)
-        if (libcShared.exists()) {
-            libcShared.setReadable(true, false)
-            libcShared.setExecutable(true, false)
-        }
+        // Apply read and execute permissions recursively across all files in the runtime folder
+        setPermissionsRecursively(serverDir)
 
         Log.d("Tyrizx", "Starting server through system linker bypass...")
 
@@ -122,6 +116,21 @@ class MainActivity : AppCompatActivity() {
             Log.d("Tyrizx", "Loading WebView at http://127.0.0.1:8080")
             webView.loadUrl("http://127.0.0.1:8080")
         }, 15000)
+    }
+
+    private fun setPermissionsRecursively(fileOrDir: File) {
+        if (fileOrDir.isDirectory) {
+            val files = fileOrDir.listFiles()
+            if (files != null) {
+                for (child in files) {
+                    setPermissionsRecursively(child)
+                }
+            }
+        }
+        fileOrDir.setReadable(true, false)
+        if (fileOrDir.name.endsWith(".so") || fileOrDir.name.contains(".so.") || fileOrDir.name == "libnode.so") {
+            fileOrDir.setExecutable(true, false)
+        }
     }
 
     private fun copyAssetsToDir(assetPath: String, targetDir: File) {
