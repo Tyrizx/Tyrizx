@@ -54,17 +54,25 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Check if code-server binary exists
-        val serverBinary = File(serverDir, "bin/code-server")
-        if (!serverBinary.exists()) {
-            Log.e("Tyrizx", "code-server binary not found at ${serverBinary.absolutePath}")
+        // Log directory contents
+        logDirectoryContents(serverDir)
+
+        // Try to find the binary
+        val possiblePaths = listOf(
+            File(serverDir, "bin/code-server"),
+            File(serverDir, "code-server")
+        )
+
+        val serverBinary = possiblePaths.firstOrNull { it.exists() }
+
+        if (serverBinary == null) {
+            Log.e("Tyrizx", "code-server binary not found in any expected location.")
             return
         }
 
-        Log.d("Tyrizx", "Binary exists, setting executable...")
+        Log.d("Tyrizx", "Binary found at: ${serverBinary.absolutePath}, setting executable...")
         serverBinary.setExecutable(true)
 
-        // Create user data dir
         val userDataDir = File(filesDir, ".tyrizx-userdata")
         userDataDir.mkdirs()
 
@@ -72,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         val processBuilder = ProcessBuilder(
             serverBinary.absolutePath,
             "--port", "8080",
-            "--host", "127.0.0.1",  // Bind to loopback only
+            "--host", "127.0.0.1",
             "--auth", "none",
             "--user-data-dir", userDataDir.absolutePath
         )
@@ -82,8 +90,6 @@ class MainActivity : AppCompatActivity() {
 
         try {
             serverProcess = processBuilder.start()
-
-            // Read stdout/stderr in a separate thread to avoid blocking
             Thread {
                 val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream ?: InputStream.nullInputStream()))
                 var line: String?
@@ -91,24 +97,32 @@ class MainActivity : AppCompatActivity() {
                     Log.d("Tyrizx", "Server: $line")
                 }
             }.start()
-
         } catch (e: Exception) {
             Log.e("Tyrizx", "Failed to start server: ${e.message}")
             e.printStackTrace()
             return
         }
 
-        // Wait for server to start, then load WebView
         webView.postDelayed({
             Log.d("Tyrizx", "Loading WebView at http://127.0.0.1:8080")
             webView.loadUrl("http://127.0.0.1:8080")
-        }, 8000)
+        }, 15000)
+    }
+
+    private fun logDirectoryContents(dir: File, indent: String = "") {
+        dir.listFiles()?.forEach {
+            Log.d("Tyrizx", "$indent${it.name}")
+            if (it.isDirectory) {
+                logDirectoryContents(it, "$indent  ")
+            }
+        } ?: Log.d("Tyrizx", "$indent(empty or not a directory)")
     }
 
     private fun copyAssets(assetPath: String, targetDir: File) {
-        val list = assets.list(assetPath) ?: return
-        if (list.isEmpty()) {
+        val assetList = assets.list(assetPath)
+        if (assetList.isNullOrEmpty()) {
             val outFile = File(targetDir, assetPath.substringAfterLast('/'))
+            outFile.parentFile?.mkdirs()
             assets.open(assetPath).use { input ->
                 FileOutputStream(outFile).use { output ->
                     input.copyTo(output)
@@ -116,7 +130,7 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             targetDir.mkdirs()
-            for (file in list) {
+            for (file in assetList) {
                 val subPath = if (assetPath.isEmpty()) file else "$assetPath/$file"
                 copyAssets(subPath, File(targetDir, file))
             }
