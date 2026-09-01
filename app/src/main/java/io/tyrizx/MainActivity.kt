@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         // Log directory contents
         logDirectoryContents(serverDir)
 
-        // Try to find the binary
+        // Locate the binary
         val possiblePaths = listOf(
             File(serverDir, "bin/code-server"),
             File(serverDir, "code-server")
@@ -72,6 +72,27 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("Tyrizx", "Binary found at: ${serverBinary.absolutePath}, setting executable...")
         serverBinary.setExecutable(true)
+
+        // Also set executable on the bundled node binary
+        val nodeBinary = File(serverDir, "lib/node")
+        if (nodeBinary.exists()) {
+            Log.d("Tyrizx", "Setting executable on node binary")
+            nodeBinary.setExecutable(true)
+        }
+
+        // Force chmod 755 on both binaries
+        try {
+            val chmod1 = Runtime.getRuntime().exec(arrayOf("chmod", "755", serverBinary.absolutePath))
+            chmod1.waitFor()
+            Log.d("Tyrizx", "chmod code-server exit: ${chmod1.exitValue()}")
+            if (nodeBinary.exists()) {
+                val chmod2 = Runtime.getRuntime().exec(arrayOf("chmod", "755", nodeBinary.absolutePath))
+                chmod2.waitFor()
+                Log.d("Tyrizx", "chmod node exit: ${chmod2.exitValue()}")
+            }
+        } catch (e: Exception) {
+            Log.e("Tyrizx", "chmod failed: ${e.message}")
+        }
 
         val userDataDir = File(filesDir, ".tyrizx-userdata")
         userDataDir.mkdirs()
