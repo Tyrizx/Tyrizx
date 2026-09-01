@@ -39,10 +39,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startServerAndLoad() {
-        val serverDir = File(filesDir, "code-server")
+        val serverDir = File(filesDir, "openvscode")
         Log.d("Tyrizx", "Server dir: ${serverDir.absolutePath}")
 
-        // Delete old folder to force a clean copy
         if (serverDir.exists()) {
             Log.d("Tyrizx", "Deleting existing folder...")
             serverDir.deleteRecursively()
@@ -50,7 +49,8 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("Tyrizx", "Extracting assets...")
         try {
-            copyAssetsToDir("code-server", serverDir)
+            // Correct asset copying entry point
+            copyAssetsToDir("openvscode", serverDir)
             Log.d("Tyrizx", "Extraction complete.")
         } catch (e: IOException) {
             Log.e("Tyrizx", "Extraction failed: ${e.message}")
@@ -58,61 +58,58 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Locate the binary (try multiple possible paths)
-        val binaryCandidates = listOf(
-            File(serverDir, "bin/code-server"),
-            File(serverDir, "bin/code-server/code-server"),
-            File(serverDir, "code-server")
-        )
+        // Node binary at the root of target folder
+        val nodeBinary = File(serverDir, "node")
+        if (!nodeBinary.exists()) {
+            Log.e("Tyrizx", "Node binary not found at ${nodeBinary.absolutePath}")
+            return
+        }
+        nodeBinary.setExecutable(true)
 
-        val serverBinary = binaryCandidates.firstOrNull { it.exists() }
-
-        if (serverBinary == null) {
-            Log.e("Tyrizx", "code-server binary not found.")
+        // Server entry point
+        val serverMain = File(serverDir, "out/server-main.js")
+        if (!serverMain.exists()) {
+            Log.e("Tyrizx", "server-main.js not found at ${serverMain.absolutePath}")
             return
         }
 
-        Log.d("Tyrizx", "Binary found at: ${serverBinary.absolutePath}")
-        serverBinary.setExecutable(true)
+        Log.d("Tyrizx", "Starting server with Node...")
 
-        val nodeBinary = File(serverDir, "lib/node")
-        if (nodeBinary.exists()) {
-            nodeBinary.setExecutable(true)
-        }
-
-        // chmod 755 on the binary
-        try {
-            val chmod = Runtime.getRuntime().exec(arrayOf("chmod", "755", serverBinary.absolutePath))
-            chmod.waitFor()
-            Log.d("Tyrizx", "chmod code-server exit: ${chmod.exitValue()}")
-        } catch (e: Exception) {
-            Log.e("Tyrizx", "chmod failed: ${e.message}")
-        }
-
-        val userDataDir = File(filesDir, ".tyrizx-userdata")
-        userDataDir.mkdirs()
-
-        Log.d("Tyrizx", "Starting server...")
         val processBuilder = ProcessBuilder(
-            serverBinary.absolutePath,
+            nodeBinary.absolutePath,
+            serverMain.absolutePath,
             "--port", "8080",
             "--host", "127.0.0.1",
-            "--auth", "none",
-            "--user-data-dir", userDataDir.absolutePath
+            "--without-connection-token"
         )
         processBuilder.directory(serverDir)
-        processBuilder.environment()["LD_LIBRARY_PATH"] = "/system/lib64:${serverDir.absolutePath}"
+
+        // Force Node to discover local runtime libraries/modules
+        processBuilder.environment()["NODE_PATH"] = File(serverDir, "node_modules").absolutePath
+        processBuilder.environment()["LD_LIBRARY_PATH"] = serverDir.absolutePath
+        
+        // This multiplexes standard error directly into standard output stream
         processBuilder.redirectErrorStream(true)
 
         try {
             serverProcess = processBuilder.start()
+
+            // Handle combined stdout and stderr streams cleanly inside a background thread
             Thread {
-                val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream ?: InputStream.nullInputStream()))
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    Log.d("Tyrizx", "Server: $line")
+                val inputStream = serverProcess?.inputStream
+                if (inputStream != null) {
+                    val reader = BufferedReader(InputStreamReader(inputStream))
+                    var line: String?
+                    try {
+                        while (reader.readLine().also { line = it } != null) {
+                            Log.d("Tyrizx", "Server: $line")
+                        }
+                    } catch (e: IOException) {
+                        Log.e("Tyrizx", "Stream closed: ${e.message}")
+                    }
                 }
             }.start()
+
         } catch (e: Exception) {
             Log.e("Tyrizx", "Failed to start server: ${e.message}")
             e.printStackTrace()
@@ -125,27 +122,26 @@ class MainActivity : AppCompatActivity() {
         }, 15000)
     }
 
-    /**
-     * Recursively copy assets from the APK to the internal storage.
-     * Handles files and directories correctly.
-     */
     private fun copyAssetsToDir(assetPath: String, targetDir: File) {
         val assetList = assets.list(assetPath)
+        
         if (assetList.isNullOrEmpty()) {
-            // It's a file – copy it
-            val outFile = File(targetDir, assetPath.substringAfterLast('/'))
-            outFile.parentFile?.mkdirs()
+            // It is an asset file, copy it directly
+            targetDir.parentFile?.mkdirs()
             assets.open(assetPath).use { input ->
-                FileOutputStream(outFile).use { output ->
+                FileOutputStream(targetDir).use { output ->
                     input.copyTo(output)
                 }
             }
         } else {
-            // It's a directory – create it and recurse
-            targetDir.mkdirs()
+            // It is an asset directory, build the matching folder structure
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
             for (file in assetList) {
-                val subPath = if (assetPath.isEmpty()) file else "$assetPath/$file"
-                copyAssetsToDir(subPath, File(targetDir, file))
+                val subAssetPath = if (assetPath.isEmpty()) file else "$assetPath/$file"
+                val subTargetFile = File(targetDir, file)
+                copyAssetsToDir(subAssetPath, subTargetFile)
             }
         }
     }
