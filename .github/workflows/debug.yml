@@ -41,13 +41,19 @@ jobs:
         BASE_URL="https://packages-cf.termux.dev/apt/termux-main"
         wget -q "$BASE_URL/dists/stable/main/binary-aarch64/Packages" -O TermuxPackages
 
-        # 3. Extract Node binary
+        # 3. Extract Node binary (ROBUST REPO LOOKUP)
         NODE_PATH=$(grep -E '^Filename: pool/main/n/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$NODE_PATH" ]; then
-          echo "ERROR: Could not find nodejs-lts package"
+          # Fallback in case folder structure changed to alphabetical categories (like pool/main/node/)
+          NODE_PATH=$(grep -E '^Filename: pool/main/[^/]+/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
+        fi
+        if [ -z "$NODE_PATH" ]; then
+          echo "ERROR: Could not find nodejs-lts package in TermuxPackages"
           exit 1
         fi
+        
         NODE_DEB=$(basename "$NODE_PATH")
+        echo "Found Node package: $NODE_DEB"
         wget -q "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
         mkdir -p node-extract
         dpkg-deb -x "$NODE_DEB" node-extract/
@@ -55,29 +61,31 @@ jobs:
         chmod +x node
         rm -rf node-extract "$NODE_DEB"
 
-        # 4. Extract libc++_shared.so (FIXED PATTERN)
-        # Try to find libc++ package in the index
-        LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+[^ ]*\.deb' TermuxPackages | head -n 1 | awk '{print $2}')
+        # 4. Extract libc++_shared.so (ROBUST REPO LOOKUP)
+        LIBC_PATH=$(grep -E '^Filename: pool/main/libc/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$LIBC_PATH" ]; then
-          echo "WARNING: libc++ not found in index, trying alternate pattern..."
-          LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/' TermuxPackages | head -n 1 | awk '{print $2}')
+          # Fallback to old structured path pattern
+          LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
+        fi
+        if [ -z "$LIBC_PATH" ]; then
+          # Looser check matching exact deb names anywhere in the pool hierarchy
+          LIBC_PATH=$(grep -E '^Filename: pool/main/.*libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
         fi
         if [ -z "$LIBC_PATH" ]; then
           echo "ERROR: Could not find libc++ package in TermuxPackages"
-          echo "Available libc++ entries:"
-          grep -i '^Filename:.*libc++' TermuxPackages || echo "None found"
           exit 1
         fi
+        
         LIBC_DEB=$(basename "$LIBC_PATH")
         echo "Found libc++ package: $LIBC_DEB"
         wget -q "$BASE_URL/$LIBC_PATH" -O "$LIBC_DEB"
         mkdir -p lib-extract
         dpkg-deb -x "$LIBC_DEB" lib-extract/
-        # Find and copy libc++_shared.so from wherever it is
+        
+        # Locate exact shared library file recursively
         LIB_FILE=$(find lib-extract -name "libc++_shared.so" | head -n 1)
         if [ -z "$LIB_FILE" ]; then
-          echo "ERROR: libc++_shared.so not found in extracted package"
-          find lib-extract -name "*.so" | head -20
+          echo "ERROR: libc++_shared.so not found inside package archive"
           exit 1
         fi
         cp "$LIB_FILE" .
@@ -85,7 +93,7 @@ jobs:
 
         # 5. Create symlink
         ln -sf libc++_shared.so libstdc++.so.6
-        echo "Files in assets:"
+        echo "Assets extraction finalized successfully!"
         ls -la
 
     - name: Apply Tyrizx branding
