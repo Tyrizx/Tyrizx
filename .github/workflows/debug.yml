@@ -28,20 +28,25 @@ jobs:
     - name: Download and prepare OpenVSCode Server (Android)
       run: |
         set -e
+        ROOT_DIR=$PWD
 
-        mkdir -p app/src/main/assets/openvscode
-        mkdir -p app/src/main/jniLibs/arm64-v8a
+        # 1. Create directories
+        mkdir -p "$ROOT_DIR/app/src/main/assets/openvscode"
+        mkdir -p "$ROOT_DIR/app/src/main/jniLibs/arm64-v8a"
 
-        cd app/src/main/assets/openvscode
+        # 2. Download official OpenVSCode Server ARM64 tarball
+        cd "$ROOT_DIR/app/src/main/assets/openvscode"
         wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
         tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
         mv openvscode-server-v1.109.5-linux-arm64/* .
         rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
-        cd ../../../..
+        cd "$ROOT_DIR"
 
+        # 3. Fetch Termux package index
         BASE_URL="https://packages-cf.termux.dev/apt/termux-main"
         wget -q "$BASE_URL/dists/stable/main/binary-aarch64/Packages" -O TermuxPackages
 
+        # 4. Extract Node binary to jniLibs
         NODE_PATH=$(grep -E '^Filename: pool/main/n/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$NODE_PATH" ]; then
           NODE_PATH=$(grep -E '^Filename: pool/main/[^/]+/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
@@ -54,9 +59,10 @@ jobs:
         wget -q "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
         mkdir -p node-extract
         dpkg-deb -x "$NODE_DEB" node-extract/
-        cp node-extract/data/data/com.termux/files/usr/bin/node app/src/main/jniLibs/arm64-v8a/libnode.so
+        cp node-extract/data/data/com.termux/files/usr/bin/node "$ROOT_DIR/app/src/main/jniLibs/arm64-v8a/libnode.so"
         rm -rf node-extract "$NODE_DEB"
 
+        # 5. Extract libc++_shared.so to jniLibs
         LIBC_PATH=$(grep -E '^Filename: pool/main/libc/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$LIBC_PATH" ]; then
           LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
@@ -74,16 +80,17 @@ jobs:
           echo "ERROR: libc++_shared.so not found"
           exit 1
         fi
-        cp "$LIB_FILE" app/src/main/jniLibs/arm64-v8a/
+        cp "$LIB_FILE" "$ROOT_DIR/app/src/main/jniLibs/arm64-v8a/"
         rm -rf lib-extract "$LIBC_DEB" TermuxPackages
 
-        cd app/src/main/jniLibs/arm64-v8a/
+        # 6. Create symlink in jniLibs
+        cd "$ROOT_DIR/app/src/main/jniLibs/arm64-v8a/"
         ln -sf libc++_shared.so libstdc++.so.6
-        cd ../../../..
+        cd "$ROOT_DIR"
 
         echo "Assets and JNI libraries prepared successfully"
-        ls -la app/src/main/assets/openvscode/ | head -10
-        ls -la app/src/main/jniLibs/arm64-v8a/
+        ls -la "$ROOT_DIR/app/src/main/assets/openvscode/" | head -10
+        ls -la "$ROOT_DIR/app/src/main/jniLibs/arm64-v8a/"
 
     - name: Apply Tyrizx branding
       run: |
