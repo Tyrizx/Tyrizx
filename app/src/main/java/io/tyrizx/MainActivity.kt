@@ -1,6 +1,7 @@
 package io.tyrizx
 
 import android.os.Bundle
+import android.os.Environment
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.util.Log
@@ -54,9 +55,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // === DEBUG: write directory tree to external storage ===
+        // === DEBUG: write directory tree to Downloads ===
         try {
-            val debugFile = File(getExternalFilesDir(null), "tyrizx_debug.txt")
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val debugFile = File(downloadsDir, "tyrizx_debug.txt")
             writeDirectoryTree(serverDir, debugFile)
             Log.d("Tyrizx", "Debug tree written to ${debugFile.absolutePath}")
         } catch (e: Exception) {
@@ -141,7 +143,7 @@ class MainActivity : AppCompatActivity() {
         outputFile.printWriter().use { writer ->
             dir.walkTopDown().forEach {
                 val relativePath = it.absolutePath.removePrefix(basePath)
-                val depth = relativePath.count { it == File.separatorChar }
+                val depth = relativePath.count { it == '/' } // count directory separators
                 val indent = "  ".repeat(depth)
                 writer.println("$indent${it.name}${if (it.isDirectory) "/" else ""}")
             }
