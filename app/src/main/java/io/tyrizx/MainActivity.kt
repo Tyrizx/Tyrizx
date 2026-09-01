@@ -3,10 +3,13 @@ package io.tyrizx
 import android.os.Bundle
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 class MainActivity : AppCompatActivity() {
 
@@ -35,36 +38,37 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startServerAndLoad() {
-        val serverDir = File(filesDir, "openvscode")
+        val serverDir = File(filesDir, "code-server")
         if (!serverDir.exists()) {
             try {
-                copyAssets("openvscode", serverDir)
+                copyAssets("code-server", serverDir)
             } catch (e: IOException) {
                 e.printStackTrace()
                 return
             }
         }
 
-        val nodeBinary = File(serverDir, "node")
-        nodeBinary.setExecutable(true)
-
-        val serverScript = File(serverDir, "bin/openvscode-server")
-        serverScript.setExecutable(true)
+        val serverBinary = File(serverDir, "code-server")
+        serverBinary.setExecutable(true)
 
         val processBuilder = ProcessBuilder(
-            serverScript.absolutePath,
+            serverBinary.absolutePath,
             "--port", "8080",
             "--host", "127.0.0.1",
-            "--without-connection-token",
-            "--user-data-dir", "${filesDir.absolutePath}/.rift-userdata"
+            "--auth", "none",
+            "--user-data-dir", "${filesDir.absolutePath}/.tyrizx-userdata"
         )
         processBuilder.directory(serverDir)
         processBuilder.environment()["LD_LIBRARY_PATH"] = "/system/lib64:${serverDir.absolutePath}"
         serverProcess = processBuilder.start()
 
+        val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream))
+        val output = reader.readText()
+        Log.d("Tyrizx", "Server output: $output")
+
         webView.postDelayed({
             webView.loadUrl("http://127.0.0.1:8080")
-        }, 3000)
+        }, 8000)
     }
 
     private fun copyAssets(assetPath: String, targetDir: File) {
@@ -89,4 +93,4 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         serverProcess?.destroy()
     }
-}
+)
