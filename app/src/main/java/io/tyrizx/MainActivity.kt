@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         val processBuilder = ProcessBuilder(
             serverBinary.absolutePath,
             "--port", "8080",
-            "--host", "127.0.0.1",
+            "--host", "0.0.0.0",
             "--auth", "none",
             "--user-data-dir", "${filesDir.absolutePath}/.tyrizx-userdata"
         )
@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
         Log.d("Tyrizx", "Server output: $output")
 
         webView.postDelayed({
-            webView.loadUrl("http://127.0.0.1:8080")
+            webView.loadUrl("http://0.0.0.0:8080")
         }, 8000)
     }
 
