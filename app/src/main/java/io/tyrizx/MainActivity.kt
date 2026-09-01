@@ -10,7 +10,6 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
 
@@ -57,30 +56,33 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Node binary is extracted to nativeLibraryDir (libnode.so)
-        val nativeLibDir = applicationInfo.nativeLibraryDir
-        val nodeBinary = File(nativeLibDir, "libnode.so")
+        // Locate files extracted to internal data storage
+        val nodeBinary = File(serverDir, "libnode.so")
+        val serverMain = File(serverDir, "out/server-main.js")
+        val libcShared = File(serverDir, "libc++_shared.so")
 
         if (!nodeBinary.exists()) {
             Log.e("Tyrizx", "libnode.so not found at ${nodeBinary.absolutePath}")
             return
         }
-
-        // Ensure execute permission (SELinux allows this in nativeLibraryDir)
-        nodeBinary.setExecutable(true)
-        nodeBinary.setWritable(false)
-        nodeBinary.setReadable(true)
-
-        // Server entry point is in assets (copied to serverDir)
-        val serverMain = File(serverDir, "out/server-main.js")
         if (!serverMain.exists()) {
             Log.e("Tyrizx", "server-main.js not found at ${serverMain.absolutePath}")
             return
         }
 
-        Log.d("Tyrizx", "Starting server with Node from nativeLibraryDir...")
+        // Fix file permissions explicitly so the system linker is authorized to parse them
+        nodeBinary.setReadable(true, false)
+        nodeBinary.setExecutable(true, false)
+        if (libcShared.exists()) {
+            libcShared.setReadable(true, false)
+            libcShared.setExecutable(true, false)
+        }
 
+        Log.d("Tyrizx", "Starting server through system linker bypass...")
+
+        // CRITICAL SELINUX BYPASS: Execute using system linker64
         val processBuilder = ProcessBuilder(
+            "/system/bin/linker64",
             nodeBinary.absolutePath,
             serverMain.absolutePath,
             "--port", "8080",
@@ -89,22 +91,25 @@ class MainActivity : AppCompatActivity() {
         )
         processBuilder.directory(serverDir)
 
-        // Set environment variables
-        val nodeModulesPath = File(serverDir, "node_modules").absolutePath
-        processBuilder.environment()["NODE_PATH"] = nodeModulesPath
-
-        // Also add nativeLibraryDir to LD_LIBRARY_PATH for libc++_shared.so
-        val libPath = "$nativeLibDir:${serverDir.absolutePath}"
-        processBuilder.environment()["LD_LIBRARY_PATH"] = libPath
+        // Configure Node runtime environment variables
+        processBuilder.environment()["NODE_PATH"] = File(serverDir, "node_modules").absolutePath
+        processBuilder.environment()["LD_LIBRARY_PATH"] = serverDir.absolutePath
         processBuilder.redirectErrorStream(true)
 
         try {
             serverProcess = processBuilder.start()
             Thread {
-                val reader = BufferedReader(InputStreamReader(serverProcess?.inputStream ?: InputStream.nullInputStream()))
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    Log.d("Tyrizx", "Server: $line")
+                val inputStream = serverProcess?.inputStream
+                if (inputStream != null) {
+                    val reader = BufferedReader(InputStreamReader(inputStream))
+                    var line: String?
+                    try {
+                        while (reader.readLine().also { line = it } != null) {
+                            Log.d("Tyrizx", "Server: $line")
+                        }
+                    } catch (e: IOException) {
+                        Log.e("Tyrizx", "Stream closed: ${e.message}")
+                    }
                 }
             }.start()
         } catch (e: Exception) {
