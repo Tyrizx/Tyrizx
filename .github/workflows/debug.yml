@@ -38,33 +38,63 @@ jobs:
         mv openvscode-server-v1.109.5-linux-arm64/* .
         rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
 
-        # Fetch the latest Termux package index to extract real-time URLs dynamically
+        # Fetch Termux package index
         BASE_URL="https://packages-cf.termux.dev/apt/termux-main"
         wget -q "$BASE_URL/dists/stable/main/binary-aarch64/Packages" -O TermuxPackages
 
-        # 3. Dynamically download and extract Termux Node binary
+        # 3. Extract Node binary
         NODE_PATH=$(grep -E '^Filename: pool/main/n/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
+        if [ -z "$NODE_PATH" ]; then
+          echo "ERROR: Could not find nodejs-lts package in TermuxPackages"
+          exit 1
+        fi
         NODE_DEB=$(basename "$NODE_PATH")
-        wget -q "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
-        
+        wget -v "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
         mkdir -p node-extract
         dpkg-deb -x "$NODE_DEB" node-extract/
-        cp node-extract/data/data/com.termux/files/usr/bin/node .
+        # Debug: list extracted contents
+        echo "Contents of node-extract:"
+        find node-extract -type f -name "node" -o -type f -name "nodejs" | head -20
+        # Copy the node binary (try both possible locations)
+        if [ -f node-extract/data/data/com.termux/files/usr/bin/node ]; then
+          cp node-extract/data/data/com.termux/files/usr/bin/node .
+        elif [ -f node-extract/usr/bin/node ]; then
+          cp node-extract/usr/bin/node .
+        else
+          echo "ERROR: node binary not found in extracted package"
+          exit 1
+        fi
         chmod +x node
         rm -rf node-extract "$NODE_DEB"
 
-        # 4. Dynamically download and extract libc++_shared.so
+        # 4. Extract libc++_shared.so
         LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
+        if [ -z "$LIBC_PATH" ]; then
+          echo "ERROR: Could not find libc++ package in TermuxPackages"
+          exit 1
+        fi
         LIBC_DEB=$(basename "$LIBC_PATH")
-        wget -q "$BASE_URL/$LIBC_PATH" -O "$LIBC_DEB"
-        
+        wget -v "$BASE_URL/$LIBC_PATH" -O "$LIBC_DEB"
         mkdir -p lib-extract
         dpkg-deb -x "$LIBC_DEB" lib-extract/
-        cp lib-extract/data/data/com.termux/files/usr/lib/libc++_shared.so .
+        # Debug: list extracted contents
+        echo "Contents of lib-extract:"
+        find lib-extract -name "libc++*.so*" | head -20
+        # Copy the library
+        if [ -f lib-extract/data/data/com.termux/files/usr/lib/libc++_shared.so ]; then
+          cp lib-extract/data/data/com.termux/files/usr/lib/libc++_shared.so .
+        elif [ -f lib-extract/usr/lib/libc++_shared.so ]; then
+          cp lib-extract/usr/lib/libc++_shared.so .
+        else
+          echo "ERROR: libc++_shared.so not found in extracted package"
+          exit 1
+        fi
         rm -rf lib-extract "$LIBC_DEB" TermuxPackages
 
-        # 5. Create symlink so Node finds libstdc++.so.6
+        # 5. Create symlink
         ln -sf libc++_shared.so libstdc++.so.6
+        echo "Extraction complete. Files in assets:"
+        ls -la
 
     - name: Apply Tyrizx branding
       run: |
