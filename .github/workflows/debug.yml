@@ -39,16 +39,16 @@ jobs:
 
         # 3. Download Termux Node binary (Android Bionic)
         wget -q https://packages.termux.dev/apt/termux-main/pool/main/nodejs/nodejs-lts_24.18.0_aarch64.deb
-        ar x nodejs-lts_24.18.0_aarch64.deb data.tar.xz
-        tar -xf data.tar.xz --strip-components=3 ./data/data/com.termux/files/usr/bin/node
+        dpkg-deb -x nodejs-lts_24.18.0_aarch64.deb tmp/
+        cp tmp/data/data/com.termux/files/usr/bin/node .
         chmod +x node
-        rm -f nodejs-lts_24.18.0_aarch64.deb data.tar.xz
+        rm -rf tmp/ nodejs-lts_24.18.0_aarch64.deb
 
         # 4. Download libc++_shared.so (Android Bionic)
         wget -q https://packages.termux.dev/apt/termux-main/pool/main/libc%2b%2b/libc%2b%2b_29.0_aarch64.deb
-        ar x libc%2b%2b_29.0_aarch64.deb data.tar.xz
-        tar -xf data.tar.xz --strip-components=3 ./data/data/com.termux/files/usr/lib/libc++_shared.so
-        rm -f libc%2b%2b_29.0_aarch64.deb data.tar.xz
+        dpkg-deb -x libc%2b%2b_29.0_aarch64.deb tmp/
+        cp tmp/data/data/com.termux/files/usr/lib/libc++_shared.so .
+        rm -rf tmp/ libc%2b%2b_29.0_aarch64.deb
 
         # 5. Create symlink so Node finds libstdc++.so.6
         ln -sf libc++_shared.so libstdc++.so.6
