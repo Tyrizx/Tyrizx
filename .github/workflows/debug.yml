@@ -28,73 +28,62 @@ jobs:
     - name: Download and prepare OpenVSCode Server (Android)
       run: |
         set -e
-        mkdir -p app/src/main/assets/openvscode
-        cd app/src/main/assets/openvscode
 
-        # 1. Download OpenVSCode Server
+        mkdir -p app/src/main/assets/openvscode
+        mkdir -p app/src/main/jniLibs/arm64-v8a
+
+        cd app/src/main/assets/openvscode
         wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
         tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
         mv openvscode-server-v1.109.5-linux-arm64/* .
         rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
+        cd ../../../..
 
-        # 2. Fetch Termux package index
         BASE_URL="https://packages-cf.termux.dev/apt/termux-main"
         wget -q "$BASE_URL/dists/stable/main/binary-aarch64/Packages" -O TermuxPackages
 
-        # 3. Extract Node binary (ROBUST REPO LOOKUP)
         NODE_PATH=$(grep -E '^Filename: pool/main/n/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$NODE_PATH" ]; then
-          # Fallback in case folder structure changed to alphabetical categories (like pool/main/node/)
           NODE_PATH=$(grep -E '^Filename: pool/main/[^/]+/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
         fi
         if [ -z "$NODE_PATH" ]; then
-          echo "ERROR: Could not find nodejs-lts package in TermuxPackages"
+          echo "ERROR: Could not find nodejs-lts package"
           exit 1
         fi
-        
         NODE_DEB=$(basename "$NODE_PATH")
-        echo "Found Node package: $NODE_DEB"
         wget -q "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
         mkdir -p node-extract
         dpkg-deb -x "$NODE_DEB" node-extract/
-        cp node-extract/data/data/com.termux/files/usr/bin/node .
-        chmod +x node
+        cp node-extract/data/data/com.termux/files/usr/bin/node app/src/main/jniLibs/arm64-v8a/libnode.so
         rm -rf node-extract "$NODE_DEB"
 
-        # 4. Extract libc++_shared.so (ROBUST REPO LOOKUP)
         LIBC_PATH=$(grep -E '^Filename: pool/main/libc/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$LIBC_PATH" ]; then
-          # Fallback to old structured path pattern
           LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
         fi
         if [ -z "$LIBC_PATH" ]; then
-          # Looser check matching exact deb names anywhere in the pool hierarchy
-          LIBC_PATH=$(grep -E '^Filename: pool/main/.*libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
-        fi
-        if [ -z "$LIBC_PATH" ]; then
-          echo "ERROR: Could not find libc++ package in TermuxPackages"
+          echo "ERROR: Could not find libc++ package"
           exit 1
         fi
-        
         LIBC_DEB=$(basename "$LIBC_PATH")
-        echo "Found libc++ package: $LIBC_DEB"
         wget -q "$BASE_URL/$LIBC_PATH" -O "$LIBC_DEB"
         mkdir -p lib-extract
         dpkg-deb -x "$LIBC_DEB" lib-extract/
-        
-        # Locate exact shared library file recursively
         LIB_FILE=$(find lib-extract -name "libc++_shared.so" | head -n 1)
         if [ -z "$LIB_FILE" ]; then
-          echo "ERROR: libc++_shared.so not found inside package archive"
+          echo "ERROR: libc++_shared.so not found"
           exit 1
         fi
-        cp "$LIB_FILE" .
+        cp "$LIB_FILE" app/src/main/jniLibs/arm64-v8a/
         rm -rf lib-extract "$LIBC_DEB" TermuxPackages
 
-        # 5. Create symlink
+        cd app/src/main/jniLibs/arm64-v8a/
         ln -sf libc++_shared.so libstdc++.so.6
-        echo "Assets extraction finalized successfully!"
-        ls -la
+        cd ../../../..
+
+        echo "Assets and JNI libraries prepared successfully"
+        ls -la app/src/main/assets/openvscode/ | head -10
+        ls -la app/src/main/jniLibs/arm64-v8a/
 
     - name: Apply Tyrizx branding
       run: |
