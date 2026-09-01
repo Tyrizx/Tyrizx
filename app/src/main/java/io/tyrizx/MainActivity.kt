@@ -1,6 +1,7 @@
 package io.tyrizx
 
 import android.os.Bundle
+import android.os.Environment
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.util.Log
@@ -11,6 +12,8 @@ import java.io.IOException
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.InputStream
+import java.io.FileWriter
+import java.io.PrintWriter
 
 class MainActivity : AppCompatActivity() {
 
@@ -54,13 +57,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Log directory contents
-        logDirectoryContents(serverDir)
+        // === DEBUG: write directory tree to external storage ===
+        try {
+            val debugFile = File(Environment.getExternalStorageDirectory(), "tyrizx_debug.txt")
+            writeDirectoryTree(serverDir, debugFile)
+            Log.d("Tyrizx", "Debug tree written to ${debugFile.absolutePath}")
+        } catch (e: Exception) {
+            Log.e("Tyrizx", "Failed to write debug file: ${e.message}")
+        }
 
-        // Locate the binary
+        // Try to find the binary
         val possiblePaths = listOf(
             File(serverDir, "bin/code-server"),
-            File(serverDir, "code-server")
+            File(serverDir, "code-server"),
+            File(serverDir, "lib/node_modules/.bin/code-server")
         )
 
         val serverBinary = possiblePaths.firstOrNull { it.exists() }
@@ -73,7 +83,6 @@ class MainActivity : AppCompatActivity() {
         Log.d("Tyrizx", "Binary found at: ${serverBinary.absolutePath}, setting executable...")
         serverBinary.setExecutable(true)
 
-        // Also set executable on the bundled node binary
         val nodeBinary = File(serverDir, "lib/node")
         if (nodeBinary.exists()) {
             Log.d("Tyrizx", "Setting executable on node binary")
@@ -130,13 +139,14 @@ class MainActivity : AppCompatActivity() {
         }, 15000)
     }
 
-    private fun logDirectoryContents(dir: File, indent: String = "") {
-        dir.listFiles()?.forEach {
-            Log.d("Tyrizx", "$indent${it.name}")
-            if (it.isDirectory) {
-                logDirectoryContents(it, "$indent  ")
+    // === Helper: write directory tree to file ===
+    private fun writeDirectoryTree(dir: File, outputFile: File) {
+        outputFile.printWriter().use { writer ->
+            dir.walkTopDown().forEach {
+                val indent = "  ".repeat(it.depth)
+                writer.println("$indent${it.name}${if (it.isDirectory) "/" else ""}")
             }
-        } ?: Log.d("Tyrizx", "$indent(empty or not a directory)")
+        }
     }
 
     private fun copyAssets(assetPath: String, targetDir: File) {
