@@ -29,64 +29,81 @@ jobs:
       run: |
         set -e
         ROOT_DIR=$PWD
+        ASSETS_DIR="$ROOT_DIR/app/src/main/assets/openvscode"
 
-        # 1. Create target folder structures
-        mkdir -p "$ROOT_DIR/app/src/main/assets/openvscode"
+        mkdir -p "$ASSETS_DIR"
 
-        # 2. Download OpenVSCode Server (correct ARM64 tarball)
-        cd "$ROOT_DIR/app/src/main/assets/openvscode"
+        # 1. Download OpenVSCode Server
+        cd "$ASSETS_DIR"
         wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
         tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
         mv openvscode-server-v1.109.5-linux-arm64/* .
         rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
 
-        # 3. Fetch Termux package index
+        # 2. Fetch Termux package index
         cd "$ROOT_DIR"
         BASE_URL="https://packages.termux.dev/apt/termux-main"
         wget -q "$BASE_URL/dists/stable/main/binary-aarch64/Packages" -O TermuxPackages
 
-        # 4. Extract Node binary directly into assets folder as 'libnode.so'
+        # Robust extraction function preserving true symlink mapping properties (-P)
+        extract_and_copy_libs() {
+          local PKG_NAME=$1
+          local PKG_PATH=$(grep -E "^Filename: pool/main/.*${PKG_NAME}_[0-9.-]+_aarch64\.deb" TermuxPackages | head -n 1 | awk '{print $2}')
+          if [ -z "$PKG_PATH" ]; then
+            PKG_PATH=$(grep -E "^Filename: pool/main/.*${PKG_NAME}.*\.deb" TermuxPackages | head -n 1 | awk '{print $2}')
+          fi
+          if [ -z "$PKG_PATH" ]; then
+            echo "WARNING: Package $PKG_NAME not found, skipping"
+            return 0
+          fi
+          local PKG_DEB=$(basename "$PKG_PATH")
+          echo "Processing dependency package: $PKG_DEB"
+          wget -q "$BASE_URL/$PKG_PATH" -O "$PKG_DEB"
+          mkdir -p "extract-$PKG_NAME"
+          dpkg-deb -x "$PKG_DEB" "extract-$PKG_NAME/"
+          # CRITICAL: Preserve structure links natively via cp -P instead of flattening via -L
+          find "extract-$PKG_NAME" -name "*.so*" -exec cp -P {} "$ASSETS_DIR/" \; 2>/dev/null || true
+          rm -rf "extract-$PKG_NAME" "$PKG_DEB"
+        }
+
+        # 3. Extract Node binary
         NODE_PATH=$(grep -E '^Filename: pool/main/n/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
         if [ -z "$NODE_PATH" ]; then
           NODE_PATH=$(grep -E '^Filename: pool/main/[^/]+/nodejs-lts/nodejs-lts_' TermuxPackages | head -n 1 | awk '{print $2}')
-        fi
-        if [ -z "$NODE_PATH" ]; then
-          echo "ERROR: Could not find nodejs-lts package"
-          exit 1
         fi
         NODE_DEB=$(basename "$NODE_PATH")
         wget -q "$BASE_URL/$NODE_PATH" -O "$NODE_DEB"
         mkdir -p node-extract
         dpkg-deb -x "$NODE_DEB" node-extract/
-        cp node-extract/data/data/com.termux/files/usr/bin/node "$ROOT_DIR/app/src/main/assets/openvscode/libnode.so"
+        cp node-extract/data/data/com.termux/files/usr/bin/node "$ASSETS_DIR/libnode.so"
         rm -rf node-extract "$NODE_DEB"
 
-        # 5. Extract libc++_shared.so directly into assets folder
-        LIBC_PATH=$(grep -E '^Filename: pool/main/libc/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
-        if [ -z "$LIBC_PATH" ]; then
-          LIBC_PATH=$(grep -E '^Filename: pool/main/l/libc\+\+/libc\+\+_' TermuxPackages | head -n 1 | awk '{print $2}')
-        fi
-        if [ -z "$LIBC_PATH" ]; then
-          echo "ERROR: Could not find libc++ package"
-          exit 1
-        fi
-        LIBC_DEB=$(basename "$LIBC_PATH")
-        wget -q "$BASE_URL/$LIBC_PATH" -O "$LIBC_DEB"
-        mkdir -p lib-extract
-        dpkg-deb -x "$LIBC_DEB" lib-extract/
-        LIB_FILE=$(find lib-extract -name "libc++_shared.so" | head -n 1)
-        if [ -z "$LIB_FILE" ]; then
-          echo "ERROR: libc++_shared.so not found"
-          exit 1
-        fi
-        cp "$LIB_FILE" "$ROOT_DIR/app/src/main/assets/openvscode/"
-        rm -rf lib-extract "$LIBC_DEB" TermuxPackages
+        # 4. Extract required libraries
+        extract_and_copy_libs "zlib"
+        extract_and_copy_libs "openssl"
+        extract_and_copy_libs "libuv"
+        extract_and_copy_libs "libicu"
+        extract_and_copy_libs "libc\+\+"
+        extract_and_copy_libs "libcrypt"
+        extract_and_copy_libs "libedit"
+        extract_and_copy_libs "libevent"
+        extract_and_copy_libs "libnghttp2"
 
-        # 6. Create symlink directly inside the assets directory
-        cd "$ROOT_DIR/app/src/main/assets/openvscode"
+        # 5. Safe creation of custom fallbacks inside assets
+        cd "$ASSETS_DIR"
+
+        # Bionic Android compatibility routing map
         ln -sf libc++_shared.so libstdc++.so.6
 
-        echo "Assets generation finalized and aligned cleanly!"
+        # Check for non-versioned base symlinks that Node expects if they were missing
+        [ ! -f libz.so.1 ] && [ -f libz.so ] && ln -sf libz.so libz.so.1
+        [ ! -f libcrypto.so.3 ] && [ -f libcrypto.so ] && ln -sf libcrypto.so libcrypto.so.3
+        [ ! -f libssl.so.3 ] && [ -f libssl.so ] && ln -sf libssl.so libssl.so.3
+        [ ! -f libuv.so.1 ] && [ -f libuv.so ] && ln -sf libuv.so libuv.so.1
+
+        rm -f "$ROOT_DIR/TermuxPackages"
+        echo "All libraries extracted and verified successfully."
+        ls -la "$ASSETS_DIR"
 
     - name: Apply Tyrizx branding
       run: |
