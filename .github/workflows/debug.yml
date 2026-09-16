@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     steps:
     - name: Checkout code
@@ -61,7 +64,6 @@ jobs:
           wget -q "$BASE_URL/$PKG_PATH" -O "$PKG_DEB"
           mkdir -p "extract-$PKG_NAME"
           dpkg-deb -x "$PKG_DEB" "extract-$PKG_NAME/"
-          # CRITICAL: Preserve structure links natively via cp -P instead of flattening via -L
           find "extract-$PKG_NAME" -name "*.so*" -exec cp -P {} "$ASSETS_DIR/" \; 2>/dev/null || true
           rm -rf "extract-$PKG_NAME" "$PKG_DEB"
         }
@@ -92,10 +94,8 @@ jobs:
         # 5. Safe creation of custom fallbacks inside assets
         cd "$ASSETS_DIR"
 
-        # Bionic Android compatibility routing map
         ln -sf libc++_shared.so libstdc++.so.6
 
-        # Check for non-versioned base symlinks that Node expects if they were missing
         [ ! -f libz.so.1 ] && [ -f libz.so ] && ln -sf libz.so libz.so.1
         [ ! -f libcrypto.so.3 ] && [ -f libcrypto.so ] && ln -sf libcrypto.so libcrypto.so.3
         [ ! -f libssl.so.3 ] && [ -f libssl.so ] && ln -sf libssl.so libssl.so.3
@@ -128,6 +128,9 @@ jobs:
 
     - name: Build Debug APK
       run: ./gradlew assembleDebug
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ secrets.OPTIMA_TOKEN }}
 
     - name: Upload APK
       uses: actions/upload-artifact@v7
