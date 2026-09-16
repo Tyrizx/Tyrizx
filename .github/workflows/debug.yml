@@ -55,19 +55,20 @@ jobs:
         cd "$ROOT_DIR"
 
         wget -q https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-android.zip
-        unzip -q nodejs-mobile-v18.20.4-android.zip
 
-        echo "Listing extracted structure:"
-        find nodejs-mobile-v18.20.4-android -maxdepth 3 -type d | head -30
+        mkdir -p nodejs-mobile-extract
+        unzip -q -o nodejs-mobile-v18.20.4-android.zip -d nodejs-mobile-extract
+
+        echo "Full extracted structure:"
+        find nodejs-mobile-extract -maxdepth 4 | head -50
 
         mkdir -p app/src/main/jniLibs/arm64-v8a
         mkdir -p app/src/main/jniLibs/armeabi-v7a
         mkdir -p app/src/main/jniLibs/x86
         mkdir -p app/src/main/jniLibs/x86_64
 
-        # Find libnode.so for each ABI and copy it
         for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
-          SRC=$(find nodejs-mobile-v18.20.4-android -path "*/$ABI/libnode.so" -type f | head -n 1)
+          SRC=$(find nodejs-mobile-extract -path "*$ABI*" -name "libnode.so" -type f | head -n 1)
           if [ -n "$SRC" ]; then
             cp "$SRC" "app/src/main/jniLibs/$ABI/"
             echo "Copied $ABI from $SRC"
@@ -76,9 +77,8 @@ jobs:
           fi
         done
 
-        # Copy headers for JNI bridge
         mkdir -p app/libnode/include
-        HEADER_SRC=$(find nodejs-mobile-v18.20.4-android -type d -name "node" | grep include | head -n 1)
+        HEADER_SRC=$(find nodejs-mobile-extract -type d -name "node" | grep "include" | head -n 1)
         if [ -n "$HEADER_SRC" ]; then
           cp -r "$HEADER_SRC" app/libnode/include/
           echo "Copied headers from $HEADER_SRC"
@@ -86,7 +86,7 @@ jobs:
           echo "WARNING: node headers not found"
         fi
 
-        rm -rf nodejs-mobile-v18.20.4-android.zip nodejs-mobile-v18.20.4-android
+        rm -rf nodejs-mobile-v18.20.4-android.zip nodejs-mobile-extract
 
     - name: Apply Tyrizx branding
       run: |
