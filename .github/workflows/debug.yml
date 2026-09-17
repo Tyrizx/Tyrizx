@@ -48,46 +48,6 @@ jobs:
         ], { stdio: 'inherit' });
         EOF
 
-    - name: Download nodejs-mobile library
-      run: |
-        set -e
-        ROOT_DIR=$PWD
-        cd "$ROOT_DIR"
-
-        wget -q https://github.com/nodejs-mobile/nodejs-mobile/releases/download/v18.20.4/nodejs-mobile-v18.20.4-android.zip
-
-        mkdir -p nodejs-mobile-extract
-        unzip -q -o nodejs-mobile-v18.20.4-android.zip -d nodejs-mobile-extract
-
-        echo "Full extracted structure:"
-        find nodejs-mobile-extract -maxdepth 4 | head -50
-
-        mkdir -p app/src/main/jniLibs/arm64-v8a
-        mkdir -p app/src/main/jniLibs/armeabi-v7a
-        mkdir -p app/src/main/jniLibs/x86
-        mkdir -p app/src/main/jniLibs/x86_64
-
-        for ABI in arm64-v8a armeabi-v7a x86 x86_64; do
-          SRC=$(find nodejs-mobile-extract -path "*$ABI*" -name "libnode.so" -type f | head -n 1)
-          if [ -n "$SRC" ]; then
-            cp "$SRC" "app/src/main/jniLibs/$ABI/"
-            echo "Copied $ABI from $SRC"
-          else
-            echo "WARNING: libnode.so not found for $ABI"
-          fi
-        done
-
-        mkdir -p app/libnode/include
-        HEADER_SRC=$(find nodejs-mobile-extract -type d -name "node" | grep "include" | head -n 1)
-        if [ -n "$HEADER_SRC" ]; then
-          cp -r "$HEADER_SRC" app/libnode/include/
-          echo "Copied headers from $HEADER_SRC"
-        else
-          echo "WARNING: node headers not found"
-        fi
-
-        rm -rf nodejs-mobile-v18.20.4-android.zip nodejs-mobile-extract
-
     - name: Apply Tyrizx branding
       run: |
         cat > app/src/main/assets/nodejs-project/product.json << 'EOF'
@@ -115,8 +75,29 @@ jobs:
         GITHUB_ACTOR: ${{ github.actor }}
         GITHUB_TOKEN: ${{ secrets.OPTIMA_TOKEN }}
 
-    - name: Upload APK
+    - name: List APKs
+      run: ls -la app/build/outputs/apk/debug/
+
+    - name: Upload arm64-v8a APK
       uses: actions/upload-artifact@v7
       with:
-        name: tyrizx-debug
-        path: app/build/outputs/apk/debug/*.apk
+        name: tyrizx-arm64-v8a-debug
+        path: app/build/outputs/apk/debug/app-arm64-v8a-debug.apk
+
+    - name: Upload armeabi-v7a APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: tyrizx-armeabi-v7a-debug
+        path: app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
+
+    - name: Upload x86 APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: tyrizx-x86-debug
+        path: app/build/outputs/apk/debug/app-x86-debug.apk
+
+    - name: Upload x86_64 APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: tyrizx-x86_64-debug
+        path: app/build/outputs/apk/debug/app-x86_64-debug.apk
