@@ -15,6 +15,15 @@ android {
         versionName = "0.1"
     }
 
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -31,6 +40,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
 
-    // Javet for Android – Node.js runtime with multi-ABI support
+    // Javet core (V8Host, V8Runtime, NodeRuntime)
+    implementation("com.caoccao.javet:javet:5.0.10")
+
+    // Javet Node.js for Android (multi-ABI)
     implementation("com.caoccao.javet:javet-node-android:5.0.10")
 }
