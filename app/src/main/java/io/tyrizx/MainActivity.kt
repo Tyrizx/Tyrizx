@@ -7,6 +7,7 @@ import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import com.caoccao.javet.interop.V8Host
 import com.caoccao.javet.interop.V8Runtime
+import com.caoccao.javet.interop.NodeRuntime
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -14,7 +15,7 @@ import java.io.IOException
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private var nodeRuntime: V8Runtime? = null
+    private var nodeRuntime: NodeRuntime? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,11 +74,12 @@ class MainActivity : AppCompatActivity() {
 
             Log.d("Tyrizx", "Creating Node.js runtime via Javet...")
 
-            // Correct API: V8Host.getNodeInstance().createV8Runtime()
-            val runtime = V8Host.getNodeInstance().createV8Runtime()
+            // Use NodeRuntime explicitly to avoid type inference issues
+            val runtime = V8Host.getNodeInstance().createV8Runtime<NodeRuntime>()
             nodeRuntime = runtime
 
             Log.d("Tyrizx", "Executing main.js...")
+            // Use the File overload of getExecutor
             runtime.getExecutor(mainJs).executeVoid()
 
             Log.d("Tyrizx", "Server started via Javet. Entering event loop...")
