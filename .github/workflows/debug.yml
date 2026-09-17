@@ -81,12 +81,6 @@ jobs:
         name: tyrizx-armeabi-v7a-debug
         path: app/build/outputs/apk/debug/app-armeabi-v7a-debug.apk
 
-    - name: Upload x86 APK
-      uses: actions/upload-artifact@v7
-      with:
-        name: tyrizx-x86-debug
-        path: app/build/outputs/apk/debug/app-x86-debug.apk
-
     - name: Upload x86_64 APK
       uses: actions/upload-artifact@v7
       with:
