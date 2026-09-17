@@ -1,34 +1,82 @@
-plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-}
+name: Tyrizx - Debug APK
 
-android {
-    namespace = "io.tyrizx"
-    compileSdk = 35
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
 
-    defaultConfig {
-        applicationId = "io.tyrizx"
-        minSdk = 24
-        targetSdk = 35
-        versionCode = 1
-        versionName = "0.1"
-    }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
 
-    kotlin {
-        compilerOptions {
-            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    - name: Setup Java
+      uses: actions/setup-java@v6
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Download OpenVSCode Server
+      run: |
+        set -e
+        ROOT_DIR=$PWD
+        NODE_PROJECT_DIR="$ROOT_DIR/app/src/main/assets/nodejs-project"
+
+        mkdir -p "$NODE_PROJECT_DIR"
+
+        cd "$NODE_PROJECT_DIR"
+        wget -q https://github.com/gitpod-io/openvscode-server/releases/download/openvscode-server-v1.109.5/openvscode-server-v1.109.5-linux-arm64.tar.gz
+        tar -xzf openvscode-server-v1.109.5-linux-arm64.tar.gz
+        mv openvscode-server-v1.109.5-linux-arm64/* .
+        rm -rf openvscode-server-v1.109.5-linux-arm64 openvscode-server-v1.109.5-linux-arm64.tar.gz
+
+        cat > main.js << 'EOF'
+        const { fork } = require('child_process');
+        fork('./out/server-main.js', [
+          '--port', '8080',
+          '--host', '127.0.0.1',
+          '--without-connection-token'
+        ], { stdio: 'inherit' });
+        EOF
+
+    - name: Apply Tyrizx branding
+      run: |
+        cat > app/src/main/assets/nodejs-project/product.json << 'EOF'
+        {
+          "nameShort": "Tyrizx",
+          "nameLong": "Tyrizx",
+          "applicationName": "tyrizx",
+          "dataFolderName": ".tyrizx",
+          "win32AppUserModelId": "io.tyrizx",
+          "darwinBundleIdentifier": "io.tyrizx",
+          "linuxIconName": "tyrizx",
+          "extensionsGallery": {
+            "serviceUrl": "https://open-vsx.org/vscode/gallery",
+            "itemUrl": "https://open-vsx.org/vscode/item",
+            "resourceUrlTemplate": "https://open-vsx.org/vscode/unpkg/{publisher}/{name}/{version}/{path}",
+            "extensionUrlTemplate": "https://open-vsx.org/vscode/gallery/{publisher}/{name}/latest"
+          },
+          "enableTelemetry": false
         }
-    }
-}
+        EOF
 
-dependencies {
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.caoccao.javet:javet-android:5.0.10")
-}
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+      env:
+        GITHUB_ACTOR: ${{ github.actor }}
+        GITHUB_TOKEN: ${{ secrets.OPTIMA_TOKEN }}
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v7
+      with:
+        name: tyrizx-debug
+        path: app/build/outputs/apk/debug/*.apk
