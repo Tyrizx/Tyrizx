@@ -40,9 +40,6 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
 
-    // Javet core (V8Host, V8Runtime, NodeRuntime)
-    implementation("com.caoccao.javet:javet:5.0.10")
-
-    // Javet Node.js for Android (multi-ABI)
+    // Javet Node.js for Android (includes core Javet classes)
     implementation("com.caoccao.javet:javet-node-android:5.0.10")
 }
