@@ -22,12 +22,14 @@ process.argv = [
 ];
 
 log("about to import server-main.js");
-log("import type check: " + typeof import);
 
 (async () => {
   try {
     log("inside async IIFE");
-    await import(globalThis.__projectDir + "/out/server-main.js");
+    const serverPath = globalThis.__projectDir + "/out/server-main.js";
+    const serverUrl = "file://" + serverPath;
+    log("importing " + serverUrl);
+    await import(serverUrl);
     log("server-main.js imported successfully");
   } catch (err) {
     log("IMPORT FAILED");
