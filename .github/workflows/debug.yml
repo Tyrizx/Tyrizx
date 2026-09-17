@@ -25,10 +25,10 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Install NDK 25
+    - name: Install NDK 22b
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;25.1.8937393"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;22.1.7171670"
 
     - name: Download OpenVSCode Server
       run: |
