@@ -37,9 +37,16 @@ android {
 }
 
 dependencies {
+    // Existing AndroidX
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.appcompat:appcompat:1.7.0")
 
-    // Javet Node.js for Android (includes core Javet classes)
-    implementation("com.caoccao.javet:javet-node-android:5.0.10")
+    // Kotlin coroutines (required by kmp-process async API)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+
+    // nodejs-mobile – full Node.js runtime for Android
+    implementation("com.janeasystems:nodejs-mobile:18.20.4")
+
+    // kmp-process – child_process-style API for Android
+    implementation("io.github.xxfast:kmp-process:0.3.0")
 }
