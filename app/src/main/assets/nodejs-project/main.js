@@ -10,8 +10,10 @@ process.argv = [
 
 (async () => {
   try {
+    const dir = globalThis.__projectDir;
+    console.log("main.js: project dir = " + dir);
     console.log("main.js: importing server-main.js...");
-    await import("./out/server-main.js");
+    await import(dir + "/out/server-main.js");
     console.log("main.js: server-main.js loaded successfully");
   } catch (err) {
     console.error("main.js: import failed - " + err.message);
