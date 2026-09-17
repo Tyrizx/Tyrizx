@@ -32,5 +32,5 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
 
     // Javet for Android – Node.js runtime with multi-ABI support
-    implementation("com.caoccao.javet:javet-android:5.0.10")
+    implementation("com.caoccao.javet:javet-node-android:5.0.10")
 }
