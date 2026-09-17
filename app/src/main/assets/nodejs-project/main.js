@@ -1,17 +1,15 @@
 const fs = require("fs");
 
-const LOG_FILE = globalThis.__projectDir + "/main-log.txt";
+const LOG_FILE = __dirname + "/main-log.txt";
 
 function log(msg) {
   try {
     fs.appendFileSync(LOG_FILE, "[main.js] " + msg + "\n");
-  } catch (e) {
-    // nothing we can do
-  }
+  } catch (e) {}
 }
 
 log("script started");
-log("project dir = " + globalThis.__projectDir);
+log("__dirname = " + __dirname);
 
 process.argv = [
   "node",
@@ -26,10 +24,9 @@ log("about to import server-main.js");
 (async () => {
   try {
     log("inside async IIFE");
-    const serverPath = globalThis.__projectDir + "/out/server-main.js";
-    const serverUrl = "file://" + serverPath;
-    log("importing " + serverUrl);
-    await import(serverUrl);
+    const serverPath = __dirname + "/out/server-main.js";
+    log("importing " + serverPath);
+    await import(serverPath);
     log("server-main.js imported successfully");
   } catch (err) {
     log("IMPORT FAILED");
