@@ -5,12 +5,13 @@ import android.util.Log
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
-import com.caoccao.javet.interop.V8Host
-import com.caoccao.javet.interop.V8Runtime
 import com.caoccao.javet.interop.NodeRuntime
+import com.caoccao.javet.interop.V8Host
+import com.caoccao.javet.interop.callback.IJavetLogger
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.logging.Level
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,13 +35,11 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(webView)
 
-        // Extract assets first, then start the server in a background thread
         Thread {
             extractAssets()
             startServerWithJavet()
         }.start()
 
-        // Give the server time to start, then load it
         webView.postDelayed({
             Log.d("Tyrizx", "Loading WebView at http://127.0.0.1:8080")
             webView.loadUrl("http://127.0.0.1:8080")
@@ -74,17 +73,19 @@ class MainActivity : AppCompatActivity() {
 
             Log.d("Tyrizx", "Creating Node.js runtime via Javet...")
 
-            // Use NodeRuntime explicitly to avoid type inference issues
             val runtime = V8Host.getNodeInstance().createV8Runtime<NodeRuntime>()
             nodeRuntime = runtime
 
+            runtime.setLogger(object : IJavetLogger {
+                override fun log(level: Level, message: String?) {
+                    Log.d("Tyrizx-JS", "[${level.name}] $message")
+                }
+            })
+
             Log.d("Tyrizx", "Executing main.js...")
-            // Use the File overload of getExecutor
             runtime.getExecutor(mainJs).executeVoid()
 
             Log.d("Tyrizx", "Server started via Javet. Entering event loop...")
-
-            // Keep the Node.js event loop alive (critical for HTTP servers)
             runtime.await()
 
         } catch (e: Exception) {
