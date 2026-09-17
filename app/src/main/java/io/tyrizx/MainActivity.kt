@@ -67,24 +67,28 @@ class MainActivity : AppCompatActivity() {
             if (!mainJs.exists()) {
                 Log.e("Tyrizx", "main.js not found at ${mainJs.absolutePath}")
                 return
-            }
-
-            Log.d("Tyrizx", "Creating Node.js runtime via Javet...")
-
-            val runtime = V8Host.getNodeInstance().createV8Runtime<NodeRuntime>()
-            nodeRuntime = runtime
-
-            Log.d("Tyrizx", "Executing main.js...")
-            runtime.getExecutor(mainJs).executeVoid()
-
-            Log.d("Tyrizx", "Server started via Javet. Entering event loop...")
-            runtime.await()
-
-        } catch (e: Exception) {
-            Log.e("Tyrizx", "Failed to start server: ${e.message}")
-            e.printStackTrace()
         }
+
+        Log.d("Tyrizx", "Creating Node.js runtime via Javet...")
+
+        val runtime = V8Host.getNodeInstance().createV8Runtime<NodeRuntime>()
+        nodeRuntime = runtime
+
+        val projectPath = projectDir.absolutePath
+        val script = "globalThis.__projectDir = '$projectPath';\n" + mainJs.readText()
+        Log.d("Tyrizx", "Script length: ${script.length} chars")
+
+        Log.d("Tyrizx", "Executing main.js...")
+        runtime.getExecutor(script).executeVoid()
+
+        Log.d("Tyrizx", "Server started via Javet. Entering event loop...")
+        runtime.await()
+
+    } catch (e: Exception) {
+        Log.e("Tyrizx", "Failed to start server: ${e.message}")
+        e.printStackTrace()
     }
+}
 
     private fun copyAssetsToDir(assetPath: String, targetDir: File) {
         val assetList = assets.list(assetPath)
