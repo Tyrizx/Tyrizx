@@ -7,7 +7,7 @@
 
 This repository is where we develop Tyrizx, an Android-optimized distribution of [OpenVSCode Server](https://github.com/gitpod-io/openvscode-server). Our goal is to deliver a fully self-contained, offline-capable code editor as a native Android APK, without requiring Termux, a local server, or any external dependencies.
 
-The source code is available to everyone under the standard [MIT license](LICENSE.txt).
+The source code is available to everyone under the standard [MIT license](LICENSE).
 
 ## What is Tyrizx
 
@@ -117,6 +117,6 @@ If you are interested in contributing directly to the codebase, please open an i
 
 Copyright (c) Tyrizx contributors.
 
-Licensed under the MIT license.
+Licensed under the [MIT license](LICENSE).
 
 Portions of this project are derived from OpenVSCode Server and VS Code, both licensed under the MIT license.
