@@ -1,4 +1,17 @@
-console.log("main.js: script started");
+const fs = require("fs");
+
+const LOG_FILE = globalThis.__projectDir + "/main-log.txt";
+
+function log(msg) {
+  try {
+    fs.appendFileSync(LOG_FILE, "[main.js] " + msg + "\n");
+  } catch (e) {
+    // nothing we can do
+  }
+}
+
+log("script started");
+log("project dir = " + globalThis.__projectDir);
 
 process.argv = [
   "node",
@@ -8,15 +21,19 @@ process.argv = [
   "--without-connection-token"
 ];
 
+log("about to import server-main.js");
+log("import type check: " + typeof import);
+
 (async () => {
   try {
-    const dir = globalThis.__projectDir;
-    console.log("main.js: project dir = " + dir);
-    console.log("main.js: importing server-main.js...");
-    await import(dir + "/out/server-main.js");
-    console.log("main.js: server-main.js loaded successfully");
+    log("inside async IIFE");
+    await import(globalThis.__projectDir + "/out/server-main.js");
+    log("server-main.js imported successfully");
   } catch (err) {
-    console.error("main.js: import failed - " + err.message);
-    console.error("main.js: stack - " + err.stack);
+    log("IMPORT FAILED");
+    log("message: " + (err && err.message));
+    log("stack: " + (err && err.stack));
   }
 })();
+
+log("script end reached");
