@@ -5,7 +5,8 @@ import android.util.Log
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
-import com.caoccao.javet.interop.NodeRuntime
+import com.caoccao.javet.interop.V8Host
+import com.caoccao.javet.interop.V8Runtime
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -13,7 +14,7 @@ import java.io.IOException
 class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private var nodeRuntime: NodeRuntime? = null
+    private var nodeRuntime: V8Runtime? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,7 +33,7 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(webView)
 
-        // Everything in a background thread to avoid blocking the UI
+        // Extract assets first, then start the server in a background thread
         Thread {
             extractAssets()
             startServerWithJavet()
@@ -70,13 +71,20 @@ class MainActivity : AppCompatActivity() {
                 return
             }
 
-            Log.d("Tyrizx", "Creating NodeRuntime...")
-            val runtime = NodeRuntime.createV8Runtime()
+            Log.d("Tyrizx", "Creating Node.js runtime via Javet...")
+
+            // Correct API: V8Host.getNodeInstance().createV8Runtime()
+            val runtime = V8Host.getNodeInstance().createV8Runtime()
             nodeRuntime = runtime
 
             Log.d("Tyrizx", "Executing main.js...")
-            runtime.getExecutor("require('${mainJs.absolutePath}');").executeVoid()
-            Log.d("Tyrizx", "Server started via Javet")
+            runtime.getExecutor(mainJs).executeVoid()
+
+            Log.d("Tyrizx", "Server started via Javet. Entering event loop...")
+
+            // Keep the Node.js event loop alive (critical for HTTP servers)
+            runtime.await()
+
         } catch (e: Exception) {
             Log.e("Tyrizx", "Failed to start server: ${e.message}")
             e.printStackTrace()
@@ -103,6 +111,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        nodeRuntime?.close()
+        try {
+            nodeRuntime?.close()
+        } catch (e: Exception) {
+            Log.e("Tyrizx", "Error closing runtime: ${e.message}")
+        }
     }
 }
