@@ -7,7 +7,7 @@ import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 import com.caoccao.javet.interop.NodeRuntime
 import com.caoccao.javet.interop.V8Host
-import com.caoccao.javet.interop.callback.IJavetLogger
+import com.caoccao.javet.interfaces.IJavetLogger
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -77,8 +77,8 @@ class MainActivity : AppCompatActivity() {
             nodeRuntime = runtime
 
             runtime.setLogger(object : IJavetLogger {
-                override fun log(level: Level, message: String?) {
-                    Log.d("Tyrizx-JS", "[${level.name}] $message")
+                override fun log(level: Level?, message: String?) {
+                    Log.d("Tyrizx-JS", "[${level?.name}] $message")
                 }
             })
 
