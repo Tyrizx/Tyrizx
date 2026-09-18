@@ -42,6 +42,7 @@ android {
         jniLibs {
             pickFirsts.add("**/libnode.so")
             pickFirsts.add("**/libc++_shared.so")
+            keepDebugSymbols.add("**/libc++_shared.so")
         }
     }
 
