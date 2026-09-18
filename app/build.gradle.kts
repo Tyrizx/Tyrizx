@@ -6,7 +6,7 @@ plugins {
 android {
     namespace = "io.tyrizx"
     compileSdk = 35
-    ndkVersion = "23.1.7779620"
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "io.tyrizx"
