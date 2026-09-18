@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "io.tyrizx"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 27
         versionCode = 1
         versionName = "0.1"
 
