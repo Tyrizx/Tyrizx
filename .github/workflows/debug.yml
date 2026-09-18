@@ -28,7 +28,7 @@ jobs:
     - name: Install NDK 22b
       run: |
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;22.1.7171670"
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;24.0.8215888"
 
     - name: Download OpenVSCode Server
       run: |
