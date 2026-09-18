@@ -69,10 +69,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun startNode() {
         val projectDir = File(filesDir, "nodejs-project")
-        val mainJs = File(projectDir, "main.js")
+        val mainJs = File(projectDir, "main.cjs")
 
         if (!mainJs.exists()) {
-            Log.e("Tyrizx", "main.js not found at ${mainJs.absolutePath}")
+            Log.e("Tyrizx", "main.cjs not found at ${mainJs.absolutePath}")
             return
         }
 
